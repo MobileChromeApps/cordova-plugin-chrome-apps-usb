@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  Copyright (c) 2014 The Chromium Authors. All rights reserved.
+  Use of this source code is governed by a BSD-style license that can be
+  found in the LICENSE file.
+-->
+<plugin xmlns="http://cordova.apache.org/ns/plugins/1.0"
+    id="org.chromium.usb"
+    version="0.0.1-dev">
+  <engines>
+    <engine name="cordova" version=">=3.0.0" />
+  </engines>
+
+  <name>Chrome Apps USB API</name>
+
+  <dependency id="org.chromium.common" />
+  <dependency id="android.support.v4" />
+
+  <js-module src="usb.js" name="usb">
+    <clobbers target="chrome.usb" />
+  </js-module>
+
+  <platform name="android">
+    <source-file src="src/android/ChromeUsb.java" target-dir="src/org/chromium" />
+
+    <config-file target="AndroidManifest.xml" parent="/manifest">
+      <uses-feature android:name="android.hardware.usb.host" />
+      <uses-sdk android:minSdkVersion="12" android:targetSdkVersion="21" />
+    </config-file>
+
+    <config-file target="res/xml/config.xml" parent="/widget">
+      <feature name="ChromeUsb">
+        <param name="android-package" value="org.chromium.ChromeUsb" />
+      </feature>
+    </config-file>
+  </platform>
+
+</plugin>
