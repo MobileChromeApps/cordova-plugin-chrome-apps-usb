@@ -12,4 +12,5 @@ The API reference is [here](https://developer.chrome.com/apps/usb).
 
 # Release Notes
 
-(None yet!)
+## 1.0.0 (March 30, 2015)
+- Initial release
