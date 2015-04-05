@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-registerAutoTests("chrome.usb", function() {
+exports.defineAutoTests = function() {
   'use strict';
 
   var customMatchers = {
@@ -14,9 +14,9 @@ registerAutoTests("chrome.usb", function() {
           result.message = 'Expected ' + actual + ' to be a string.';
           return result;
         }
-      }
+      };
     }
-  }
+  };
 
   beforeEach(function(done) {
     jasmine.addMatchers(customMatchers);
@@ -115,4 +115,4 @@ registerAutoTests("chrome.usb", function() {
     });
   });
 
-});
+};
