@@ -5,6 +5,8 @@
 exports.defineAutoTests = function() {
   'use strict';
 
+  require('cordova-plugin-chrome-apps-test-framework.jasmine_helpers').addJasmineHelpers();
+
   var customMatchers = {
     toBeString : function(util, customEqualityTesters){
       return {
