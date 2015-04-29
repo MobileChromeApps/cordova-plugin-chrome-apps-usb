@@ -1,0 +1,31 @@
+{
+  "name": "cordova-plugin-chrome-apps-usb",
+  "version": "1.0.1-dev",
+  "description": "This plugin provides USB connectivity for Android.",
+  "cordova": {
+    "id": "cordova-plugin-chrome-apps-usb",
+    "platforms": [
+      "android"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MobileChromeApps/cordova-plugin-chrome-apps-usb.git"
+  },
+  "keywords": [
+    "ecosystem:cordova",
+    "cordova-android"
+  ],
+  "engines": [
+    {
+      "name": "cordova-android",
+      "version": ">=4"
+    }
+  ],
+  "author": "",
+  "license": "BSD",
+  "bugs": {
+    "url": "https://github.com/MobileChromeApps/cordova-plugin-chrome-apps-usb/issues"
+  },
+  "homepage": "https://github.com/MobileChromeApps/cordova-plugin-chrome-apps-usb"
+}
