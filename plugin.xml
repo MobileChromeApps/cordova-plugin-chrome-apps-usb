@@ -13,7 +13,7 @@
 
   <name>Chrome Apps USB API</name>
 
-  <dependency id="cordova-plugin-chrome-apps-common" />
+  <dependency id="cordova-plugin-chrome-apps-common@1" />
 
   <js-module src="usb.js" name="usb">
     <clobbers target="chrome.usb" />
