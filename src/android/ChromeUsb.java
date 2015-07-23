@@ -4,7 +4,6 @@
 
 package org.chromium;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -302,12 +301,14 @@ public class ChromeUsb extends CordovaPlugin {
     private void controlTransfer(CordovaArgs args, JSONObject params,
             final CallbackContext callbackContext) throws JSONException, UsbError {
         ConnectedDevice dev = getDevice(params);
-        // TODO: Ignoring the chrome.usb 'recipient' field. How does this map to the Android API?
+
         int direction = directionFromName(params.getString("direction"));
+        int requestType = controlRequestTypeFromName(params.getString("requestType"));
+        int recipient = recipientFromName(params.getString("recipient"));
         byte[] buffer = getByteBufferForTransfer(args, params, direction);
 
         int ret = dev.controlTransfer(
-                direction | controlRequestTypeFromName(params.getString("requestType")),
+                direction | requestType | recipient,
                 params.getInt("request"),
                 params.getInt("value"),
                 params.getInt("index"),
@@ -405,9 +406,11 @@ public class ChromeUsb extends CordovaPlugin {
             res.put("pollingInterval", ep.getInterval());
             res.put("type", endpointTypeName(ep.getType()));
         }
+
         boolean claimInterface(int interfaceNumber) {
             return mConnection.claimInterface(mDevice.getInterface(interfaceNumber), true);
         }
+
         boolean releaseInterface(int interfaceNumber) {
             return mConnection.releaseInterface(mDevice.getInterface(interfaceNumber));
         }
@@ -421,9 +424,7 @@ public class ChromeUsb extends CordovaPlugin {
             if (ep.getDirection() != direction) {
                 throw new UsbError("Endpoint has direction: " + directionName(ep.getDirection()));
             }
-            return mConnection.bulkTransfer(
-                    mDevice.getInterface(interfaceNumber).getEndpoint(endpointNumber),
-                    buffer, buffer.length, 0);
+            return mConnection.bulkTransfer(ep, buffer, buffer.length, 0);
         }
         void close() {
             mConnection.close();
@@ -514,24 +515,41 @@ public class ChromeUsb extends CordovaPlugin {
     private static int controlRequestTypeFromName(String requestType) throws UsbError{
         requestType = requestType.toLowerCase();
         if ("standard".equals(requestType)) {
-            return UsbConstants.USB_TYPE_STANDARD;
+            return UsbConstants.USB_TYPE_STANDARD;  /* 0x00 */
         } else if ("class".equals(requestType)) {
-            return UsbConstants.USB_TYPE_CLASS;
+            return UsbConstants.USB_TYPE_CLASS;     /* 0x20 */
         } else if ("vendor".equals(requestType)) {
-            return UsbConstants.USB_TYPE_VENDOR;
+            return UsbConstants.USB_TYPE_VENDOR;    /* 0x40 */
         } else if ("reserved".equals(requestType)) {
-            return UsbConstants.USB_TYPE_RESERVED;
+            return UsbConstants.USB_TYPE_RESERVED;  /* 0x60 */
         } else {
             throw new UsbError("Unknown transfer requestType: " + requestType);
+        }
+    }
+
+    private static int recipientFromName(String recipient) throws UsbError {
+        /* recipient value from pyUSB */
+        recipient = recipient.toLowerCase();
+
+        if("device".equals(recipient)) {
+            return 0;
+        } else if("interface".equals(recipient)) {
+            return 1;
+        } else if("endpoint".equals(recipient)) {
+            return 2;
+        } else if("other".equals(recipient)) {
+            return 3;
+        } else {
+            throw new UsbError("Unknown recipient: " + recipient);
         }
     }
 
     private static int directionFromName(String direction) throws UsbError {
         direction = direction.toLowerCase();
         if ("out".equals(direction)) {
-            return UsbConstants.USB_DIR_OUT;
+            return UsbConstants.USB_DIR_OUT; /* 0x00 */
         } else if ("in".equals(direction)) {
-            return UsbConstants.USB_DIR_IN;
+            return UsbConstants.USB_DIR_IN; /* 0x80 */
         } else {
             throw new UsbError("Unknown transfer direction: " + direction);
         }
@@ -547,6 +565,5 @@ public class ChromeUsb extends CordovaPlugin {
             return new byte[params.optInt("length")];
         }
     }
-
 }
 
