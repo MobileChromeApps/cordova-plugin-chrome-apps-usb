@@ -27,6 +27,7 @@ import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbEndpoint;
 import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
+import android.hardware.usb.UsbRequest;
 import android.os.Build;
 import android.util.Log;
 
@@ -347,7 +348,6 @@ public class ChromeUsb extends CordovaPlugin {
             callbackContext.success();
         }
     }
-
     private ConnectedDevice getDevice(JSONObject params) throws JSONException, UsbError {
         int handle = params.getInt("handle");
         ConnectedDevice d = mConnections.get(handle);
@@ -415,8 +415,32 @@ public class ChromeUsb extends CordovaPlugin {
             return mConnection.releaseInterface(mDevice.getInterface(interfaceNumber));
         }
         int controlTransfer(int requestType, int request, int value, int index, byte[] buffer) {
-            return mConnection.controlTransfer(requestType, request, value, index,
-                    buffer, buffer.length, 0);
+            UsbEndpoint ep = mDevice.getInterface(0).getEndpoint(0);
+
+            if(ep.getType() == UsbConstants.USB_ENDPOINT_XFER_INT) {
+                ByteBuffer bb = ByteBuffer.allocate(buffer.length);
+                UsbRequest ur = new UsbRequest();
+
+                ur.initialize(mConnection,ep);
+
+                ur.queue(bb, buffer.length);
+
+                mConnection.controlTransfer(requestType, request, value, index,
+                        buffer, buffer.length, 0);
+
+                if (mConnection.requestWait() == ur) {
+                    buffer = bb.array();
+                } else {
+                    Log.e(TAG, "requestWait failed, exiting");
+
+                    return -1;
+                }
+
+                return buffer.length;
+            } else {
+                return mConnection.controlTransfer(requestType, request, value, index,
+                        buffer, buffer.length, 0);
+            }
         }
         int bulkTransfer(int interfaceNumber, int endpointNumber, int direction, byte[] buffer)
                 throws UsbError {
