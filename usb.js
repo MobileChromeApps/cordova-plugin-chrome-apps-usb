@@ -156,6 +156,35 @@ exports.bulkTransfer = function(handle, transferInfo, callback) {
 };
 
 
+exports.interruptTransfer = function(handle, transferInfo, callback) {
+  if (typeof transferInfo.endpoint != "number") {
+    // List interfaces returns endpoints an object, the caller must extract the
+    // number from it.
+    return callbackWithError('endpoint must be a number, not: ' +
+        JSON.stringify(transferInfo.endpoint));
+  }
+
+  var params = {
+    handle: handle.handle,
+    direction: transferInfo.direction,
+    endpoint: transferInfo.endpoint,
+    length: transferInfo.length
+  };
+
+  cordova.exec(
+      function(data) {  // successCallback
+        callback({resultCode: 0, data:data});
+      },
+      function(msg) {  // errorCallback
+        callbackWithError('Interrupt transfer failed: ' + msg, callback, {resultCode: 1});
+      },
+      'ChromeUsb',
+      'interruptTransfer',
+      [params, transferInfo['data']]
+      );
+};
+
+
 exports.requestAccess = function(device, interfaceId, callback) {
   // Deprecated. Always returns true.
   setTimeout(function() {

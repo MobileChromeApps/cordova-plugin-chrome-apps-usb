@@ -64,6 +64,8 @@ public class ChromeUsb extends CordovaPlugin {
                 byte[] buffer);
         abstract int bulkTransfer(int interfaceNumber, int endpointNumber, int direction,
                 byte[] buffer) throws UsbError;
+        abstract int interruptTransfer(int interfaceNumber, int endpointNumber, int direction,
+                                       byte[] buffer) throws UsbError;
         abstract void close();
     };
 
@@ -125,6 +127,9 @@ public class ChromeUsb extends CordovaPlugin {
                 return true;
             } else if ("bulkTransfer".equals(action)) {
                 bulkTransfer(args, params, callbackContext);
+                return true;
+            } else if ("interruptTransfer".equals(action)) {
+                interruptTransfer(args, params, callbackContext);
                 return true;
             }
         } catch (UsbError e) {
@@ -348,6 +353,32 @@ public class ChromeUsb extends CordovaPlugin {
             callbackContext.success();
         }
     }
+
+    private void interruptTransfer(CordovaArgs args, JSONObject params,
+                              final CallbackContext callbackContext) throws JSONException, UsbError {
+        ConnectedDevice dev = getDevice(params);
+        int endpointAddress = params.getInt("endpoint");
+        int interfaceNumber = endpointAddress >> ENDPOINT_IF_SHIFT;
+        int endpointNumber = endpointAddress & ((1 << ENDPOINT_IF_SHIFT) - 1);
+        if (interfaceNumber >= dev.getInterfaceCount() ||
+                endpointNumber >= dev.getEndpointCount(interfaceNumber)) {
+            throw new UsbError("Enpoint not found: " + endpointAddress);
+        }
+
+        int direction = directionFromName(params.getString("direction"));
+        byte[] buffer = getByteBufferForTransfer(args, params, direction);
+
+        int ret = dev.interruptTransfer(interfaceNumber, endpointNumber, direction, buffer);
+        if (ret < 0) {
+            throw new UsbError("Interrupt transfer returned " + ret);
+        }
+        if (direction == UsbConstants.USB_DIR_IN) {
+            callbackContext.success(Arrays.copyOf(buffer, ret));
+        } else {
+            callbackContext.success();
+        }
+    }
+
     private ConnectedDevice getDevice(JSONObject params) throws JSONException, UsbError {
         int handle = params.getInt("handle");
         ConnectedDevice d = mConnections.get(handle);
@@ -450,6 +481,32 @@ public class ChromeUsb extends CordovaPlugin {
             }
             return mConnection.bulkTransfer(ep, buffer, buffer.length, 0);
         }
+        int interruptTransfer(int interfaceNumber, int endpointNumber, int direction, byte[] buffer)
+                throws UsbError {
+            UsbEndpoint ep = mDevice.getInterface(interfaceNumber).getEndpoint(endpointNumber);
+            if (ep.getDirection() != direction) {
+                throw new UsbError("Endpoint has direction: " + directionName(ep.getDirection()));
+            }
+
+            ByteBuffer bb = ByteBuffer.allocate(buffer.length);
+            UsbRequest request = new UsbRequest();
+
+            request.initialize(mConnection, ep);
+
+            request.queue(bb, buffer.length);
+
+            mConnection.bulkTransfer(ep, buffer, buffer.length, 0);
+
+            if (mConnection.requestWait() == request) {
+                buffer = bb.array();
+            } else {
+                Log.e(TAG, "requestWait failed, exiting");
+
+                return -1;
+            }
+
+            return buffer.length;
+        }
         void close() {
             mConnection.close();
         }
@@ -500,6 +557,21 @@ public class ChromeUsb extends CordovaPlugin {
             return buffer.length;
         }
         int bulkTransfer(int interfaceNumber, int endpointNumber, int direction, byte[] buffer)
+                throws UsbError {
+            if (direction == UsbConstants.USB_DIR_OUT) {
+                echoBytes = buffer;
+                return echoBytes.length;
+            }
+            // IN transfer.
+            if (echoBytes == null) {
+                return 0;
+            }
+            int len = Math.min(echoBytes.length, buffer.length);
+            System.arraycopy(echoBytes, 0, buffer, 0, len);
+            echoBytes = null;
+            return len;
+        }
+        int interruptTransfer(int interfaceNumber, int endpointNumber, int direction, byte[] buffer)
                 throws UsbError {
             if (direction == UsbConstants.USB_DIR_OUT) {
                 echoBytes = buffer;
