@@ -17,7 +17,11 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import android.annotation.TargetApi;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.hardware.usb.UsbConstants;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
@@ -30,6 +34,7 @@ import android.util.Log;
 @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
 public class ChromeUsb extends CordovaPlugin {
     private static final String TAG = "ChromeUsb";
+    private static final String ACTION_USB_PERMISSION = TAG + ".USB_PERMISSION";
 
     // Index of the 'params' object in CordovaArgs array passed in each action.
     private static final int ARG_INDEX_PARAMS = 0;
@@ -41,6 +46,8 @@ public class ChromeUsb extends CordovaPlugin {
     private static final int ENDPOINT_IF_SHIFT = 16;
 
     private UsbManager mUsbManager;
+    private PendingIntent mPermissionIntent;
+    private BroadcastReceiver mUsbReceiver;
 
     // Encapsulates the Android UsbDevice and UsbDeviceConnection classes, and provides wrappers
     // around the UsbInterface and UsbEndpoint methods to allow for mocking.
@@ -90,6 +97,7 @@ public class ChromeUsb extends CordovaPlugin {
 
         if (mUsbManager == null) {
             mUsbManager = (UsbManager) webView.getContext().getSystemService(Context.USB_SERVICE);
+            mPermissionIntent = PendingIntent.getBroadcast(webView.getContext(), 0, new Intent(ACTION_USB_PERMISSION), 0);
         }
 
         // TODO: Process commands asynchronously on a worker pool thread.
@@ -167,33 +175,69 @@ public class ChromeUsb extends CordovaPlugin {
                 }
             }
             if (usbDev != null) {
-                if (!mUsbManager.hasPermission(usbDev)) {
-                    // TODO: Implement dynamic permission request.
-                    throw new UsbError("Permission request not yet implemented");
+                if(mUsbReceiver == null) {
+                    mUsbReceiver = new BroadcastReceiver() {
+                        public void onReceive(Context context, Intent intent) {
+                            String action = intent.getAction();
+                            if (ACTION_USB_PERMISSION.equals(action)) {
+                                synchronized (this) {
+                                    UsbDevice device = (UsbDevice) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+
+                                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                                        if (device != null) {
+                                            UsbDeviceConnection usbConn = mUsbManager.openDevice(device);
+                                            if (usbConn == null) {
+                                                throw new UsbError("UsbManager.openDevice returned null opening " + device);
+                                            }
+                                            ConnectedDevice dev = new RealDevice(device, usbConn);
+                                            int vid = device.getVendorId();
+                                            int pid = device.getProductId();
+
+                                            if (dev == null || vid < 0 || pid < 0) {
+                                                throw new UsbError("Unknown device ID: " + device);
+                                            }
+                                            int handle = mNextConnectionId++;
+                                            mConnections.put(handle, dev);
+                                            JSONObject jsonHandle = new JSONObject();
+                                            try {
+                                                jsonHandle.put("handle", handle);
+                                                jsonHandle.put("vendorId", vid);
+                                                jsonHandle.put("productId", pid);
+                                            } catch (JSONException e) {
+                                                e.printStackTrace();
+                                            }
+                                            callbackContext.success(jsonHandle);
+                                        }
+                                    } else {
+                                        Log.d(TAG, "permission denied for device " + device);
+                                    }
+                                }
+                            }
+                        }
+                    };
+
+                    IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+                    webView.getContext().registerReceiver(mUsbReceiver, filter);
                 }
-                UsbDeviceConnection usbConn = mUsbManager.openDevice(usbDev);
-                if (usbConn == null) {
-                    throw new UsbError("UsbManager.openDevice returned null opening " + usbDev);
-                }
-                dev = new RealDevice(usbDev, usbConn);
-                vid = usbDev.getVendorId();
-                pid = usbDev.getProductId();
+
+                mUsbManager.requestPermission(usbDev, mPermissionIntent);
             } else if (devId == FakeDevice.ID) {
                 dev = new FakeDevice();
                 vid = FakeDevice.VID;
                 pid = FakeDevice.PID;
+
+                if (dev == null || vid < 0 || pid < 0) {
+                    throw new UsbError("Unknown device ID: " + devId);
+                }
+                int handle = mNextConnectionId++;
+                mConnections.put(handle, dev);
+                JSONObject jsonHandle = new JSONObject();
+                jsonHandle.put("handle", handle);
+                jsonHandle.put("vendorId", vid);
+                jsonHandle.put("productId", pid);
+                callbackContext.success(jsonHandle);
             }
         }
-        if (dev == null || vid < 0 || pid < 0) {
-            throw new UsbError("Unknown device ID: " + devId);
-        }
-        int handle = mNextConnectionId++;
-        mConnections.put(handle, dev);
-        JSONObject jsonHandle = new JSONObject();
-        jsonHandle.put("handle", handle);
-        jsonHandle.put("vendorId", vid);
-        jsonHandle.put("productId", pid);
-        callbackContext.success(jsonHandle);
     }
 
     private void closeDevice(CordovaArgs args, JSONObject params,
@@ -505,3 +549,4 @@ public class ChromeUsb extends CordovaPlugin {
     }
 
 }
+
