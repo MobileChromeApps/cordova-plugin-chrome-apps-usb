@@ -440,7 +440,7 @@ public class ChromeUsb extends CordovaPlugin {
             int result = -1;
 
             if(ep.getType() == UsbConstants.USB_ENDPOINT_XFER_INT) {
-                ByteBuffer bb = ByteBuffer.allocate(buffer.length);
+                ByteBuffer bb = ByteBuffer.wrap(buffer);
                 UsbRequest ur = new UsbRequest();
 
                 ur.initialize(mConnection, ep);
@@ -489,7 +489,7 @@ public class ChromeUsb extends CordovaPlugin {
                 throw new UsbError("Endpoint has direction: " + directionName(ep.getDirection()));
             }
 
-            ByteBuffer bb = ByteBuffer.allocate(buffer.length);
+            ByteBuffer bb = ByteBuffer.wrap(buffer);
             UsbRequest request = new UsbRequest();
 
             request.initialize(mConnection, ep);
