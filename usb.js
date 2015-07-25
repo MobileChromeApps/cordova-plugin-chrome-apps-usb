@@ -103,7 +103,7 @@ exports.controlTransfer = function(handle, transferInfo, callback) {
   var params = {};
   var ALLOWED_PROPERTIES = [
       'direction', 'recipient', 'requestType', 'request', 'value',
-      'index', 'length',
+      'index', 'length', 'timeout',
       // Skip 'data' -- sent as positional param 1
   ];
 
@@ -139,7 +139,8 @@ exports.bulkTransfer = function(handle, transferInfo, callback) {
     handle: handle.handle,
     direction: transferInfo.direction,
     endpoint: transferInfo.endpoint,
-    length: transferInfo.length
+    length: transferInfo.length,
+    timeout: transferInfo.timeout
   };
 
   cordova.exec(
@@ -168,7 +169,8 @@ exports.interruptTransfer = function(handle, transferInfo, callback) {
     handle: handle.handle,
     direction: transferInfo.direction,
     endpoint: transferInfo.endpoint,
-    length: transferInfo.length
+    length: transferInfo.length,
+    timeout: transferInfo.timeout
   };
 
   cordova.exec(
