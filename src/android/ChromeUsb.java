@@ -317,12 +317,9 @@ public class ChromeUsb extends CordovaPlugin {
         if (ret < 0) {
             throw new UsbError("Control transfer returned " + ret);
         }
-        if (direction == UsbConstants.USB_DIR_IN) {
-            // Bleh! have to take an extra copy as success() does not have buffer & length overload.
-            callbackContext.success(Arrays.copyOf(buffer, buffer.length));
-        } else {
-            callbackContext.success();
-        }
+
+        /* control transfer is bidirectional, buffer should alway be passed */
+        callbackContext.success(Arrays.copyOf(buffer, buffer.length));
     }
     private void bulkTransfer(CordovaArgs args, JSONObject params,
             final CallbackContext callbackContext) throws JSONException, UsbError {
