@@ -670,7 +670,14 @@ public class ChromeUsb extends CordovaPlugin {
             int direction) throws JSONException {
         if (direction == UsbConstants.USB_DIR_OUT) {
             // OUT transfer requires data positional argument.
-            return args.getArrayBuffer(ARG_INDEX_DATA_ARRAYBUFFER);
+            /* getArrayBuffer can not be used, see CordovaArgs class */
+            JSONArray buffer = args.getJSONArray(ARG_INDEX_DATA_ARRAYBUFFER);
+            byte[] ret = new byte[buffer.length()];
+
+            for(int n = 0; n < buffer.length(); n++)
+                ret[n] = (byte)buffer.getInt(n);
+
+            return ret;
         } else {
             // IN transfer requires client to pass the length to receive.
             return new byte[params.optInt("length")];
