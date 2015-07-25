@@ -5,6 +5,7 @@
 package org.chromium;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.HashMap;
 
@@ -324,7 +325,7 @@ public class ChromeUsb extends CordovaPlugin {
         }
         if (direction == UsbConstants.USB_DIR_IN) {
             // Bleh! have to take an extra copy as success() does not have buffer & length overload.
-            callbackContext.success(Arrays.copyOf(buffer, ret));
+            callbackContext.success(Arrays.copyOf(buffer, buffer.length));
         } else {
             callbackContext.success();
         }
@@ -348,7 +349,7 @@ public class ChromeUsb extends CordovaPlugin {
             throw new UsbError("Bulk transfer returned " + ret);
         }
         if (direction == UsbConstants.USB_DIR_IN) {
-            callbackContext.success(Arrays.copyOf(buffer, ret));
+            callbackContext.success(Arrays.copyOf(buffer, buffer.length));
         } else {
             callbackContext.success();
         }
@@ -373,7 +374,7 @@ public class ChromeUsb extends CordovaPlugin {
             throw new UsbError("Interrupt transfer returned " + ret);
         }
         if (direction == UsbConstants.USB_DIR_IN) {
-            callbackContext.success(Arrays.copyOf(buffer, ret));
+            callbackContext.success(Arrays.copyOf(buffer, buffer.length));
         } else {
             callbackContext.success();
         }
@@ -447,27 +448,34 @@ public class ChromeUsb extends CordovaPlugin {
         }
         int controlTransfer(int requestType, int request, int value, int index, byte[] buffer) {
             UsbEndpoint ep = mDevice.getInterface(0).getEndpoint(0);
+            int result = -1;
 
             if(ep.getType() == UsbConstants.USB_ENDPOINT_XFER_INT) {
                 ByteBuffer bb = ByteBuffer.allocate(buffer.length);
                 UsbRequest ur = new UsbRequest();
 
-                ur.initialize(mConnection,ep);
+                ur.initialize(mConnection, ep);
 
                 ur.queue(bb, buffer.length);
 
-                mConnection.controlTransfer(requestType, request, value, index,
+                result = mConnection.controlTransfer(requestType, request, value, index,
                         buffer, buffer.length, 0);
 
-                if (mConnection.requestWait() == ur) {
-                    buffer = bb.array();
-                } else {
-                    Log.e(TAG, "requestWait failed, exiting");
+                if(result >= 0) {
+                    if (mConnection.requestWait() == ur) {
+                        buffer = bb.array();
+                    } else {
+                        Log.e(TAG, "[controlTransfer] requestWait failed");
 
-                    return -1;
+                        return -1;
+                    }
+                } else {
+                    Log.e(TAG, "[controlTransfer] Transfer failed");
+
+                    return result;
                 }
 
-                return buffer.length;
+                return result;
             } else {
                 return mConnection.controlTransfer(requestType, request, value, index,
                         buffer, buffer.length, 0);
@@ -484,6 +492,8 @@ public class ChromeUsb extends CordovaPlugin {
         int interruptTransfer(int interfaceNumber, int endpointNumber, int direction, byte[] buffer)
                 throws UsbError {
             UsbEndpoint ep = mDevice.getInterface(interfaceNumber).getEndpoint(endpointNumber);
+            int result = -1;
+
             if (ep.getDirection() != direction) {
                 throw new UsbError("Endpoint has direction: " + directionName(ep.getDirection()));
             }
@@ -495,17 +505,22 @@ public class ChromeUsb extends CordovaPlugin {
 
             request.queue(bb, buffer.length);
 
-            mConnection.bulkTransfer(ep, buffer, buffer.length, 0);
+            result = mConnection.bulkTransfer(ep, buffer, buffer.length, 0);
 
-            if (mConnection.requestWait() == request) {
-                buffer = bb.array();
+            if(result < 0) {
+                Log.e(TAG, "[interruptTransfer] BulkTransfer failed");
+                return result;
             } else {
-                Log.e(TAG, "requestWait failed, exiting");
+                if (mConnection.requestWait() == request) {
+                    buffer = bb.array();
+                } else {
+                    Log.e(TAG, "[interruptTransfer] requestWait failed");
 
-                return -1;
+                    return -1;
+                }
             }
 
-            return buffer.length;
+            return result;
         }
         void close() {
             mConnection.close();
