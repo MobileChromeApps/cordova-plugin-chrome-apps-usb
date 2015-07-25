@@ -95,7 +95,8 @@ public class ChromeUsb extends CordovaPlugin {
     @Override
     public boolean execute(String action, CordovaArgs args, final CallbackContext callbackContext)
             throws JSONException {
-        JSONObject params = args.getJSONObject(ARG_INDEX_PARAMS);
+        final JSONObject params = args.getJSONObject(ARG_INDEX_PARAMS);
+        final CordovaArgs finalArgs = args;
         Log.d(TAG, "Action: " + action + " params: " + params);
 
         if (mUsbManager == null) {
@@ -124,13 +125,37 @@ public class ChromeUsb extends CordovaPlugin {
                 releaseInterface(args, params, callbackContext);
                 return true;
             } else if ("controlTransfer".equals(action)) {
-                controlTransfer(args, params, callbackContext);
+                new Thread(new Runnable() {
+                    public void run() {
+                        try {
+                            controlTransfer(finalArgs, params, callbackContext);
+                        } catch (JSONException e) {
+                            Log.d(TAG, e.getMessage());
+                        }
+                    }
+                }).start();
                 return true;
             } else if ("bulkTransfer".equals(action)) {
-                bulkTransfer(args, params, callbackContext);
+                new Thread(new Runnable() {
+                    public void run() {
+                        try {
+                            bulkTransfer(finalArgs, params, callbackContext);
+                        } catch (JSONException e) {
+                            Log.d(TAG, e.getMessage());
+                        }
+                    }
+                }).start();
                 return true;
             } else if ("interruptTransfer".equals(action)) {
-                interruptTransfer(args, params, callbackContext);
+                new Thread(new Runnable() {
+                    public void run() {
+                        try {
+                            interruptTransfer(finalArgs, params, callbackContext);
+                        } catch (JSONException e) {
+                            Log.d(TAG, e.getMessage());
+                        }
+                    }
+                }).start();
                 return true;
             }
         } catch (UsbError e) {
