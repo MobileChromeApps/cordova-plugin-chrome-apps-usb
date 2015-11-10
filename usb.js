@@ -103,7 +103,7 @@ exports.controlTransfer = function(handle, transferInfo, callback) {
   var params = {};
   var ALLOWED_PROPERTIES = [
       'direction', 'recipient', 'requestType', 'request', 'value',
-      'index', 'length',
+      'index', 'length', 'timeout',
       // Skip 'data' -- sent as positional param 1
   ];
 
@@ -139,7 +139,8 @@ exports.bulkTransfer = function(handle, transferInfo, callback) {
     handle: handle.handle,
     direction: transferInfo.direction,
     endpoint: transferInfo.endpoint,
-    length: transferInfo.length
+    length: transferInfo.length,
+    timeout: transferInfo.timeout
   };
 
   cordova.exec(
@@ -151,6 +152,36 @@ exports.bulkTransfer = function(handle, transferInfo, callback) {
       },
       'ChromeUsb',
       'bulkTransfer',
+      [params, transferInfo['data']]
+      );
+};
+
+
+exports.interruptTransfer = function(handle, transferInfo, callback) {
+  if (typeof transferInfo.endpoint != "number") {
+    // List interfaces returns endpoints an object, the caller must extract the
+    // number from it.
+    return callbackWithError('endpoint must be a number, not: ' +
+        JSON.stringify(transferInfo.endpoint));
+  }
+
+  var params = {
+    handle: handle.handle,
+    direction: transferInfo.direction,
+    endpoint: transferInfo.endpoint,
+    length: transferInfo.length,
+    timeout: transferInfo.timeout
+  };
+
+  cordova.exec(
+      function(data) {  // successCallback
+        callback({resultCode: 0, data:data});
+      },
+      function(msg) {  // errorCallback
+        callbackWithError('Interrupt transfer failed: ' + msg, callback, {resultCode: 1});
+      },
+      'ChromeUsb',
+      'interruptTransfer',
       [params, transferInfo['data']]
       );
 };
