@@ -125,37 +125,37 @@ public class ChromeUsb extends CordovaPlugin {
                 releaseInterface(args, params, callbackContext);
                 return true;
             } else if ("controlTransfer".equals(action)) {
-                new Thread(new Runnable() {
+                cordova.getThreadPool().execute(new Runnable() {
                     public void run() {
                         try {
                             controlTransfer(finalArgs, params, callbackContext);
-                        } catch (JSONException e) {
-                            Log.d(TAG, e.getMessage());
+                        } catch (Exception e) {
+                            callbackContext.error(e.getMessage());
                         }
                     }
-                }).start();
+                });
                 return true;
             } else if ("bulkTransfer".equals(action)) {
-                new Thread(new Runnable() {
+                cordova.getThreadPool().execute(new Runnable() {
                     public void run() {
                         try {
                             bulkTransfer(finalArgs, params, callbackContext);
-                        } catch (JSONException e) {
-                            Log.d(TAG, e.getMessage());
+                        } catch (Exception e) {
+                            callbackContext.error(e.getMessage());
                         }
                     }
-                }).start();
+                });
                 return true;
             } else if ("interruptTransfer".equals(action)) {
-                new Thread(new Runnable() {
+                cordova.getThreadPool().execute(new Runnable() {
                     public void run() {
                         try {
                             interruptTransfer(finalArgs, params, callbackContext);
-                        } catch (JSONException e) {
-                            Log.d(TAG, e.getMessage());
+                        } catch (Exception e) {
+                            callbackContext.error(e.getMessage());
                         }
                     }
-                }).start();
+                });
                 return true;
             }
         } catch (UsbError e) {
