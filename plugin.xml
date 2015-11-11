@@ -25,7 +25,7 @@
     <source-file src="src/android/ChromeUsb.java" target-dir="src/org/chromium" />
 
     <config-file target="AndroidManifest.xml" parent="/manifest">
-      <uses-feature android:name="android.hardware.usb.host" />
+      <uses-feature android:name="android.hardware.usb.host" android:required="false" />
       <uses-sdk android:minSdkVersion="12" android:targetSdkVersion="21" />
     </config-file>
 
