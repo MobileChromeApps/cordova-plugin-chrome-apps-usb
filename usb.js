@@ -13,7 +13,6 @@ try {
 exports.getDevices = function(options, callback) {
   cordova.exec(
       function(devices) {  // successCallback
-        // TODO(joth): Filter devices according to |options|.
         callback(devices);
       },
       function(msg) {  // errorCallback
@@ -51,11 +50,28 @@ exports.closeDevice = function(handle, opt_callback) {
       'closeDevice',
       [{handle:handle.handle}]
       );
+};
+
+function stringToArrayBuffer(str) {
+    var ret = new Uint8Array(str.length);
+    for (var i = 0; i < str.length; i++) {
+        ret[i] = str.charCodeAt(i);
+    }
+    return ret.buffer;
+}
+
+function base64ToArrayBuffer(b64) {
+    return stringToArrayBuffer(atob(b64));
 }
 
 exports.listInterfaces = function(handle, callback) {
   cordova.exec(
-      callback,  // successCallback
+      function(interfaceDescriptors) {
+        interfaceDescriptors.forEach(function (interfaceDescriptor) {
+            interfaceDescriptor.extra_data = base64ToArrayBuffer(interfaceDescriptor.extra_data);
+        });
+        callback(interfaceDescriptors);
+      },  // successCallback
       function(msg) {  // errorCallback
         callbackWithError('List interfaces failed: ' + msg, callback, []);
       },

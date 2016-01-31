@@ -30,6 +30,7 @@ import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
 import android.hardware.usb.UsbRequest;
 import android.os.Build;
+import android.util.Base64;
 import android.util.Log;
 
 @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
@@ -84,6 +85,8 @@ public class ChromeUsb extends CordovaPlugin {
         mConnections.clear();
     }
 
+    private CallbackContext openCallbackContext;
+
     /**
      * Overridden execute method
      * @param action the string representation of the action to execute
@@ -93,7 +96,7 @@ public class ChromeUsb extends CordovaPlugin {
      * @throws JSONException if the args parsing fails
      */
     @Override
-    public boolean execute(String action, CordovaArgs args, final CallbackContext callbackContext)
+    public boolean execute(String action, final CordovaArgs args, final CallbackContext callbackContext)
             throws JSONException {
         final JSONObject params = args.getJSONObject(ARG_INDEX_PARAMS);
         final CordovaArgs finalArgs = args;
@@ -110,7 +113,16 @@ public class ChromeUsb extends CordovaPlugin {
                 getDevices(args, params, callbackContext);
                 return true;
             } else if ("openDevice".equals(action)) {
-                openDevice(args, params, callbackContext);
+                this.openCallbackContext = callbackContext;
+                cordova.getThreadPool().execute(new Runnable() {
+                    public void run() {
+                        try {
+                            openDevice(args, params, callbackContext);
+                        } catch (Exception e) {
+                            callbackContext.error(e.getMessage());
+                        }
+                    }
+                });
                 return true;
             } else if ("closeDevice".equals(action)) {
                 closeDevice(args, params, callbackContext);
@@ -167,13 +179,64 @@ public class ChromeUsb extends CordovaPlugin {
         }
         return false;
     }
+    private boolean filterDevice(UsbDevice device, JSONArray filters) throws JSONException {
+        if (filters == null) {
+            return true;
+        }
+        Log.d(TAG, "filtering " + filters);
+        for (int filterIdx = 0; filterIdx < filters.length(); filterIdx++) {
+            JSONObject filter = filters.getJSONObject(filterIdx);
+            int vendorId = filter.optInt("vendorId", -1);
+            if (vendorId != -1) {
+                if (device.getVendorId() != vendorId) {
+                    continue;
+                }
+            }
+            int productId = filter.optInt("productId", -1);
+            if (productId != -1) {
+                if (device.getProductId() != productId) {
+                    continue;
+                }
+            }
+            int interfaceClass = filter.optInt("interfaceClass", -1);
+            int interfaceSubclass = filter.optInt("interfaceSubclass", -1);
+            int interfaceProtocol = filter.optInt("interfaceProtocol", -1);
+            if (interfaceClass == -1 && interfaceSubclass == -1 && interfaceProtocol == -1) {
+                return true;
+            }
+            int interfaceCount = device.getInterfaceCount();
+            for (int interfaceIdx = 0; interfaceIdx < interfaceCount; interfaceIdx++) {
+                UsbInterface usbInterface = device.getInterface(interfaceIdx);
+                if (interfaceClass != -1) {
+                    if (interfaceClass != usbInterface.getInterfaceClass()) {
+                        continue;
+                    }
+                }
+                if (interfaceSubclass != -1) {
+                    if (interfaceSubclass != usbInterface.getInterfaceSubclass()) {
+                        continue;
+                    }
+                }
+                if (interfaceProtocol != -1) {
+                    if (interfaceProtocol != usbInterface.getInterfaceProtocol()) {
+                        continue;
+                    }
+                }
+                return true;
+            }
+        }
+        return false;
+    }
     private void getDevices(CordovaArgs args, JSONObject params,
             final CallbackContext callbackContext) throws JSONException, UsbError {
         HashMap<String, UsbDevice> devices = mUsbManager.getDeviceList();
+        JSONArray filters = params.optJSONArray("filters");
         JSONArray result = new JSONArray();
         for (UsbDevice device: devices.values()) {
-            addDeviceToArray(result, device.getDeviceId(), device.getVendorId(),
-                    device.getProductId());
+            if (filterDevice(device, filters)) {
+                addDeviceToArray(result, device.getDeviceId(), device.getVendorId(),
+                        device.getProductId());
+            }
         }
         if (params.optBoolean("appendFakeDevice", false)) {
             addDeviceToArray(result, FakeDevice.ID, FakeDevice.VID, FakeDevice.PID);
@@ -235,7 +298,13 @@ public class ChromeUsb extends CordovaPlugin {
                                             } catch (JSONException e) {
                                                 e.printStackTrace();
                                             }
-                                            callbackContext.success(jsonHandle);
+                                            if (null != ChromeUsb.this.openCallbackContext) {
+                                                ChromeUsb.this.openCallbackContext.success(jsonHandle);
+                                                ChromeUsb.this.openCallbackContext = null;
+                                            } else {
+                                                // at least fire to someone...
+                                                callbackContext.success(jsonHandle);
+                                            }
                                         }
                                     } else {
                                         Log.d(TAG, "permission denied for device " + device);
@@ -299,7 +368,6 @@ public class ChromeUsb extends CordovaPlugin {
             JSONObject jsonIf = new JSONObject();
             dev.describeInterface(i, jsonIf);
             jsonIf.put("interfaceNumber", i);
-            jsonIf.put("extra_data", new JSONObject());
             jsonIf.put("endpoints", jsonEndpoints);
             jsonInterfaces.put(jsonIf);
         }
@@ -368,7 +436,7 @@ public class ChromeUsb extends CordovaPlugin {
             throw new UsbError("Bulk transfer returned " + ret);
         }
         if (direction == UsbConstants.USB_DIR_IN) {
-            callbackContext.success(Arrays.copyOf(buffer, buffer.length));
+            callbackContext.success(Arrays.copyOf(buffer, ret));
         } else {
             callbackContext.success();
         }
@@ -393,7 +461,7 @@ public class ChromeUsb extends CordovaPlugin {
             throw new UsbError("Interrupt transfer returned " + ret);
         }
         if (direction == UsbConstants.USB_DIR_IN) {
-            callbackContext.success(Arrays.copyOf(buffer, buffer.length));
+            callbackContext.success(Arrays.copyOf(buffer, ret));
         } else {
             callbackContext.success();
         }
@@ -447,6 +515,37 @@ public class ChromeUsb extends CordovaPlugin {
             res.put("interfaceClass", i.getInterfaceClass());
             res.put("interfaceProtocol", i.getInterfaceProtocol());
             res.put("interfaceSubclass", i.getInterfaceSubclass());
+            byte[] rawDescriptors = mConnection.getRawDescriptors();
+            byte[] extraDescriptor = null;
+            int idx = 0;
+            while (idx < rawDescriptors.length) {
+                byte length = rawDescriptors[idx];
+                byte descriptorType = rawDescriptors[idx + 1];
+                if (descriptorType == 0x04) {
+                    // interface descriptor
+                    int descriptorInterfaceNumber = rawDescriptors[idx + 2];
+                    if (interfaceNumber == descriptorInterfaceNumber) {
+                        Log.d(TAG, "Interface descriptor found: " + interfaceNumber);
+                        idx += length;
+                        if (idx < rawDescriptors.length) {
+                            length = rawDescriptors[idx];
+                            descriptorType = rawDescriptors[idx + 1];
+                            if (descriptorType == 0x01 || descriptorType == 0x02 || descriptorType == 0x04 || descriptorType == 0x05) {
+                                break;
+                            }
+                            extraDescriptor = new byte[length];
+                            System.arraycopy(rawDescriptors, idx, extraDescriptor, 0, length);
+                            break;
+                        }
+                        break;
+                    }
+                }
+                idx += length;
+            }
+            if (null == extraDescriptor) {
+                extraDescriptor = new byte[0];
+            }
+            res.put("extra_data", Base64.encodeToString(extraDescriptor, Base64.NO_WRAP));
         }
         void describeEndpoint(int interfaceNumber, int endpointNumber, JSONObject res)
                 throws JSONException {
@@ -520,32 +619,10 @@ public class ChromeUsb extends CordovaPlugin {
                               byte[] buffer, int timeout)
                 throws UsbError {
             UsbEndpoint ep = mDevice.getInterface(interfaceNumber).getEndpoint(endpointNumber);
-            int result = -1;
-
             if (ep.getDirection() != direction) {
                 throw new UsbError("Endpoint has direction: " + directionName(ep.getDirection()));
             }
-
-            ByteBuffer bb = ByteBuffer.wrap(buffer);
-            UsbRequest request = new UsbRequest();
-
-            request.initialize(mConnection, ep);
-
-            request.queue(bb, buffer.length);
-
-            result = mConnection.bulkTransfer(ep, buffer, buffer.length, timeout);
-
-            if(result < 0) {
-                Log.e(TAG, "[interruptTransfer] BulkTransfer failed");
-            } else {
-                if (mConnection.requestWait() != request) {
-                    Log.e(TAG, "[interruptTransfer] requestWait failed");
-
-                    return -1;
-                }
-            }
-
-            return result;
+            return mConnection.bulkTransfer(ep, buffer, buffer.length, timeout);
         }
         void close() {
             mConnection.close();
@@ -571,6 +648,7 @@ public class ChromeUsb extends CordovaPlugin {
             res.put("interfaceClass", 255);
             res.put("interfaceProtocol", 255);
             res.put("interfaceSubclass", 255);
+            res.put("extra_data", new JSONObject());
         }
         void describeEndpoint(int interfaceNumber, int endpointNumber, JSONObject res)
                 throws JSONException {
