@@ -12,6 +12,16 @@ The API reference is [here](https://developer.chrome.com/apps/usb).
 
 # Release Notes
 
+## 1.1.0 (Feb, 2016)
+- Adds support for chrome.usb.interruptTransfer
+- Fix for multiple usage of openDevice
+- Implements getDevices filtering
+- Set USB feature as optional
+- Implemented dynamic USB permission request
+- Implemented 'recipient' field in controlTransfer
+- Implemented asynchronous control transfer
+- Implemented 'timeout' parameter
+
 ## 1.0.1 (April 30, 2015)
 - Renamed plugin to pubilsh to NPM
 
