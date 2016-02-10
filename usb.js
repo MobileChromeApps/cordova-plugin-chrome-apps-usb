@@ -5,6 +5,7 @@
 var exec = require('cordova/exec');
 var platformId = require('cordova/platform').id;
 var callbackWithError = require('cordova-plugin-chrome-apps-common.errors').callbackWithError;
+var base64 = require('cordova/base64')
 try {
       var runtime = require('cordova-plugin-chrome-apps-runtime');
 } catch(e) {}
@@ -52,23 +53,11 @@ exports.closeDevice = function(handle, opt_callback) {
       );
 };
 
-function stringToArrayBuffer(str) {
-    var ret = new Uint8Array(str.length);
-    for (var i = 0; i < str.length; i++) {
-        ret[i] = str.charCodeAt(i);
-    }
-    return ret.buffer;
-}
-
-function base64ToArrayBuffer(b64) {
-    return stringToArrayBuffer(atob(b64));
-}
-
 exports.listInterfaces = function(handle, callback) {
   cordova.exec(
       function(interfaceDescriptors) {
         interfaceDescriptors.forEach(function (interfaceDescriptor) {
-            interfaceDescriptor.extra_data = base64ToArrayBuffer(interfaceDescriptor.extra_data);
+            interfaceDescriptor.extra_data = base64.toArrayBuffer(interfaceDescriptor.extra_data);
         });
         callback(interfaceDescriptors);
       },  // successCallback
