@@ -122,7 +122,15 @@ public class ChromeUsb extends CordovaPlugin {
 
         try {
             if ("getDevices".equals(action)) {
-                getDevices(args, params, callbackContext);
+                cordova.getThreadPool().execute(new Runnable() {
+                    public void run() {
+                        try {
+                            getDevices(args, params, callbackContext);
+                        } catch (Exception e) {
+                            callbackContext.error(e.getMessage());
+                        }
+                    }
+                });
                 return true;
             } else if ("openDevice".equals(action)) {
                 this.openCallbackContext = callbackContext;
