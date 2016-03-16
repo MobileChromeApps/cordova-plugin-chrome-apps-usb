@@ -12,6 +12,7 @@ import java.util.HashMap;
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaArgs;
 import org.apache.cordova.CordovaPlugin;
+import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -22,6 +23,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.hardware.usb.UsbConstants;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
@@ -121,7 +123,11 @@ public class ChromeUsb extends CordovaPlugin {
         }
 
         try {
-            if ("getDevices".equals(action)) {
+            if ("hasUsbHostFeature".equals(action)) {
+                boolean usbHostFeature = cordova.getActivity().getApplicationContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_USB_HOST);
+                callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, usbHostFeature));
+                return true;
+            } else if ("getDevices".equals(action)) {
                 cordova.getThreadPool().execute(new Runnable() {
                     public void run() {
                         try {

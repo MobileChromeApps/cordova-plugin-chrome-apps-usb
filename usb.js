@@ -199,3 +199,18 @@ exports.requestAccess = function(device, interfaceId, callback) {
   }, 0);
 };
 
+
+exports.cordova = {
+  hasUsbHostFeature: function(callback) {
+    exec(function(result) {
+        callback(result);
+      },
+      function(error) {
+        callback(false);
+      },
+      'ChromeUsb',
+      'hasUsbHostFeature',
+      [{}]);
+  }
+};
+
