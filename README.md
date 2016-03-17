@@ -12,6 +12,10 @@ The API reference is [here](https://developer.chrome.com/apps/usb).
 
 # Release Notes
 
+## 1.2.0 (March, 2016)
+- Adds chrome.usb.cordova.hasUsbHostFeature()
+- Moves getDevices() to a background thread
+
 ## 1.1.0 (Feb, 2016)
 - Adds support for chrome.usb.interruptTransfer
 - Fix for multiple usage of openDevice

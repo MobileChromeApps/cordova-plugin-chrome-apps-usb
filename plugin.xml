@@ -6,7 +6,7 @@
 -->
 <plugin xmlns="http://cordova.apache.org/ns/plugins/1.0"
     id="cordova-plugin-chrome-apps-usb"
-    version="1.1.1-dev">
+    version="1.2.0">
   <engines>
     <engine name="cordova-android" version=">=4" />
   </engines>
