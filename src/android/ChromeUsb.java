@@ -83,6 +83,19 @@ public class ChromeUsb extends CordovaPlugin {
             d.close();
         }
         mConnections.clear();
+        unregisterReceiver();
+    }
+
+    @Override
+    public void onReset() {
+        unregisterReceiver();
+    }
+
+    private void unregisterReceiver() {
+        if(mUsbReceiver != null) {
+            webView.getContext().unregisterReceiver(mUsbReceiver);
+            mUsbReceiver = null;
+        }
     }
 
     private CallbackContext openCallbackContext;
@@ -107,10 +120,17 @@ public class ChromeUsb extends CordovaPlugin {
             mPermissionIntent = PendingIntent.getBroadcast(webView.getContext(), 0, new Intent(ACTION_USB_PERMISSION), 0);
         }
 
-        // TODO: Process commands asynchronously on a worker pool thread.
         try {
             if ("getDevices".equals(action)) {
-                getDevices(args, params, callbackContext);
+                cordova.getThreadPool().execute(new Runnable() {
+                    public void run() {
+                        try {
+                            getDevices(args, params, callbackContext);
+                        } catch (Exception e) {
+                            callbackContext.error(e.getMessage());
+                        }
+                    }
+                });
                 return true;
             } else if ("openDevice".equals(action)) {
                 this.openCallbackContext = callbackContext;
